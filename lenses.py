@@ -3,8 +3,9 @@
 import logging
 from argparse import ArgumentParser
 from datetime import datetime
+from os import path
 
-LOG_NAME = "lenses.log"
+LOG_NAME = f"{path.dirname(path.abspath(__file__))}/lenses.log"
 DATE_FORMAT = "%Y-%m-%d"
 
 
