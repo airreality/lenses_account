@@ -2,7 +2,7 @@
 
 import logging
 from argparse import ArgumentParser
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import path
 
 LOG_NAME = f"{path.dirname(path.abspath(__file__))}/lenses.log"
@@ -21,14 +21,19 @@ def parse_args():
         help="date when lenses were used or unused (default: today)",
     )
     parser.add_argument(
-        '--used', '-u',
+        '--fill', '-f',
         action='store_true',
-        help='option to specify that lenses were used',
+        help='option to set all unspecified dates between the first and the last dates as missed',
     )
     parser.add_argument(
         '--missed', '-m',
         action='store_true',
         help='option to specify that lenses were unused',
+    )
+    parser.add_argument(
+        '--used', '-u',
+        action='store_true',
+        help='option to specify that lenses were used',
     )
 
     return parser.parse_args()
@@ -42,6 +47,35 @@ def init_logger():
     )
 
     return logging.getLogger()
+
+
+def clear_log():
+    with open(LOG_NAME, 'w') as log:
+        log.truncate(0)
+
+
+def add_log_line(logger, date, msg):
+    logger.info(f"{date}:{msg}")
+
+
+def fill_log(logger):
+    with open(LOG_NAME) as log:
+        lines = [line.split(':') for line in log.read().splitlines()]
+        lines.sort()
+
+    item, count = 0, len(lines)
+
+    while not item >= count - 1:
+        if (datetime.strptime(lines[item + 1][0], DATE_FORMAT) - \
+            (date := datetime.strptime(lines[item][0], DATE_FORMAT))
+           ).total_seconds() > 60 * 60 * 24:
+            lines.insert(item + 1, [(date + timedelta(1)).strftime(DATE_FORMAT), '0'])
+        item += 1
+        count = len(lines)
+
+    clear_log()
+    for date, result in lines:
+        add_log_line(logger, date, result)
 
 
 def account():
@@ -61,13 +95,13 @@ def main():
     logger = init_logger()
 
     if args.clear:
-        with open(LOG_NAME, 'w') as config:
-            config.truncate(0)
+        clear_log()
 
     if msg := '1' if args.used else '0' if args.missed else '':
-        logger.info(
-            ':'.join([args.date or datetime.now().strftime(DATE_FORMAT), msg])
-        )
+        add_log_line(logger, args.date or datetime.now().strftime(DATE_FORMAT), msg)
+
+    if args.fill:
+        fill_log(logger)
 
     account()
 
